@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Export Figma Variables</title>
+</head>
+
+<body>
+  <button id="export">Download JSON</button>
+  <script>
+    document.getElementById("export").addEventListener("click", () => {
+      parent.postMessage({ pluginMessage: { type: "export" } }, "*");
+    });
+
+    window.onmessage = (event) => {
+      const { type, data } = event.data.pluginMessage;
+      if (type === "download") {
+        const blob = new Blob([data], { type: "application/json" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "tokens.json";
+        a.click();
+      }
+    };
+  </script>
+</body>
+
+</html>
