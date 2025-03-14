@@ -66,7 +66,7 @@ function resolveVariableAlias(
 }
 
 // Variables 데이터 가져오기
-async function getVariables() {
+export async function getVariables() {
   const variables = await figma.variables.getLocalVariablesAsync(); // 모든 Variables 가져오기
   const collections = await figma.variables.getLocalVariableCollectionsAsync(); // 모든 Variables Collection 가져오기
   const tokenData: { [collectionName: string]: CollectionData } = {};
@@ -152,13 +152,20 @@ async function getVariables() {
     }
   });
 
-  return tokenData;
+  figma.clientStorage.setAsync("variablesJson", tokenData);
 }
 
-// JSON 다운로드 트리거
 export async function exportJSON() {
-  const tokens = await getVariables();
-  const jsonString = JSON.stringify(tokens, null, 2);
+  await getVariables();
+  const data = await figma.clientStorage.getAsync("variablesJson");
+  const jsonString = JSON.stringify(data, null, 2);
 
-  figma.ui.postMessage({ type: "export-varaibles", data: jsonString });
+  figma.ui.postMessage({ type: "export-variables", data: jsonString });
+}
+
+export async function downloadJSON() {
+  const data = await figma.clientStorage.getAsync("variablesJson");
+  const jsonString = JSON.stringify(data, null, 2);
+
+  figma.ui.postMessage({ type: "download-variables", data: jsonString });
 }

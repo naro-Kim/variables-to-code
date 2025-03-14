@@ -30,7 +30,22 @@
     .container {
       display: flex;
       flex-direction: column;
+      align-items: center;
+      justify-content: center;
       width: 100%;
+    }
+
+    .buttons-container {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+    }
+
+    .description {
+      margin-bottom: 20px;
+      text-align: center;
+      font-size: small;
+      max-width: 70%;
     }
 
     .table-container {
@@ -85,15 +100,34 @@
 
 <body>
   <div class="container">
-    <button id="export">Download JSON</button>
+
+    <div class='container'>
+      <p class='description'>
+        Download the variables as JSON, CSS, or Tailwind Config.
+      </p>
+      <div class='buttons-container'>
+        <button id="download-variables">JSON</button>
+        <button id="download-css">CSS</button>
+        <button id="download-config">Tailwind Config</button>
+      </div>
+    </div>
     <div id="table-container" class="table-container">
       <div class="no-data">Export variables to view data</div>
     </div>
   </div>
 
   <script>
-    document.getElementById("export").addEventListener("click", () => {
-      parent.postMessage({ pluginMessage: { type: "export-varaibles" } }, "*");
+
+    document.getElementById("download-variables").addEventListener("click", () => {
+      parent.postMessage({ pluginMessage: { type: "download-variables" } }, "*");
+    });
+
+    document.getElementById("download-css").addEventListener("click", () => {
+      parent.postMessage({ pluginMessage: { type: "download-css" } }, "*");
+    });
+
+    document.getElementById("download-config").addEventListener("click", () => {
+      parent.postMessage({ pluginMessage: { type: "download-config" } }, "*");
     });
 
     // Render the JSON data as a table
@@ -222,17 +256,24 @@
       return value.toString();
     }
 
+    function downloadVariableJson(data) {
+
+      const blob = new Blob([data], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "tokens.json";
+      a.click();
+    }
+
     window.onmessage = (event) => {
       const { type, data } = event.data.pluginMessage;
-      if (type === "export-varaibles") {
-        renderVariablesTable(data);
-
-        // Create download link
-        const blob = new Blob([data], { type: "application/json" });
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = "tokens.json";
-        a.click();
+      switch (type) {
+        case "export-variables":
+          renderVariablesTable(data);
+          break;
+        case "download-variables":
+          downloadVariableJson(data);
+          break;
       }
     };
   </script>
