@@ -236,7 +236,6 @@
       }
     }
 
-    // Format variable values for display
     function formatVariableValue(value) {
       if (value === null || value === undefined) {
         return 'None';
@@ -257,11 +256,26 @@
     }
 
     function downloadVariableJson(data) {
-
       const blob = new Blob([data], { type: "application/json" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
       a.download = "tokens.json";
+      a.click();
+    }
+
+    function downloadCSSFile(data) {
+      const blob = new Blob([data], { type: "text/css" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "variables.css";
+      a.click();
+    }
+
+    function downloadTailwindConfig(data) {
+      const blob = new Blob([data], { type: "text/javascript" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "tailwind.config.js";
       a.click();
     }
 
@@ -273,6 +287,12 @@
           break;
         case "download-variables":
           downloadVariableJson(data);
+          break;
+        case "download-css":
+          downloadCSSFile(data);
+          break;
+        case "download-config":
+          downloadTailwindConfig(data);
           break;
       }
     };

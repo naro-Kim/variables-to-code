@@ -1,3 +1,4 @@
+import { downloadCSS } from "./utils/utils-css";
 import { downloadJSON, exportJSON } from "./utils/utils-json";
 
 figma.on("run", exportJSON);
@@ -11,10 +12,10 @@ figma.ui.onmessage = (msg) => {
       downloadJSON();
       break;
     case "download-css":
-      console.log("CSS");
+      downloadCSS();
       break;
     case "download-config":
-      console.log("Config");
+      // downloadTailwindConfig();
       break;
   }
 };

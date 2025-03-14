@@ -1,18 +1,6 @@
 "use strict";
 
-// Using a different name to avoid conflict with Figma's built-in VariableValue type
-interface CustomVariableValue {
-  name: string;
-  id: string;
-  value: VariableValue;
-}
-interface CollectionData {
-  modes?: string[];
-  variables?:
-    | { [modeName: string]: CustomVariableValue[] }
-    | CustomVariableValue[];
-  type?: string;
-}
+import { CustomVariableValue, VariablesJson } from "@src/types";
 
 /**
  * Resolves variable aliases recursively
@@ -69,7 +57,7 @@ function resolveVariableAlias(
 export async function getVariables() {
   const variables = await figma.variables.getLocalVariablesAsync(); // 모든 Variables 가져오기
   const collections = await figma.variables.getLocalVariableCollectionsAsync(); // 모든 Variables Collection 가져오기
-  const tokenData: { [collectionName: string]: CollectionData } = {};
+  const tokenData: VariablesJson = {};
 
   // Process each collection
   collections.forEach((collection) => {
@@ -78,8 +66,8 @@ export async function getVariables() {
       // Initialize the collection structure based on whether it has modes
       const hasModes = collection.modes.length > 1;
       tokenData[collectionName] = {
-        type: undefined, // Will be set later
-        variables: undefined, // Will be set later
+        type: "", // Will be set later
+        variables: {}, // Will be set later
       };
 
       if (hasModes) {
