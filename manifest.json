@@ -2,19 +2,13 @@
   "name": "Variables to Code",
   "id": "1481579348815308247",
   "api": "1.0.0",
-  "main": "code.js",
-  "capabilities": [
-    "inspect"
-  ],
+  "main": "./dist/code.js",
+  "capabilities": ["inspect"],
   "enableProposedApi": false,
   "documentAccess": "dynamic-page",
-  "editorType": [
-    "dev"
-  ],
+  "editorType": ["dev"],
   "ui": "ui.html",
   "networkAccess": {
-    "allowedDomains": [
-      "none"
-    ]
+    "allowedDomains": ["none"]
   }
 }
