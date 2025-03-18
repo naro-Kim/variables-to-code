@@ -12,12 +12,14 @@ type TailwindCategory =
   | "borderWidth"
   | "boxShadow"
   | "opacity"
-  | "zIndex";
+  | "zIndex"
+  | "screen";
 
 /**
  * Maps category prefixes to Tailwind theme categories
  */
 const categoryMapping: Record<string, TailwindCategory> = {
+  breakpoint: "screen",
   spacing: "spacing",
   space: "spacing",
   size: "spacing",
@@ -55,26 +57,25 @@ function determineTailwindCategory(
   collectionName: string
 ): TailwindCategory | null {
   const name = sanitizeName(variableName);
-
+  let category: TailwindCategory | null = null; 
   // First check collection name for category clues
-  const collectionLower = collectionName.toLowerCase();
-
-  if (collectionLower.includes("color")) return "colors";
-  if (collectionLower.includes("spacing")) return "spacing";
+  const collectionLower = collectionName.toLowerCase(); 
+  if (collectionLower.includes("color")) category = "colors";
+  if (collectionLower.includes("spacing")) category = "spacing";
   if (collectionLower.includes("font") && collectionLower.includes("size"))
-    return "fontSize";
+    category = "fontSize";
   if (collectionLower.includes("font") && collectionLower.includes("weight"))
-    return "fontWeight";
+    category = "fontWeight";
   if (collectionLower.includes("font") && collectionLower.includes("family"))
-    return "fontFamily";
+    category = "fontFamily";
   if (collectionLower.includes("radius") || collectionLower.includes("rounded"))
-    return "borderRadius";
-  if (collectionLower.includes("shadow")) return "boxShadow";
+    category = "borderRadius";
+  if (collectionLower.includes("shadow")) category = "boxShadow";
 
   // Then check variable name prefixes
   for (const prefix in categoryMapping) {
     if (name.startsWith(prefix)) {
-      return categoryMapping[prefix];
+      category = categoryMapping[prefix];
     }
   }
 
@@ -84,15 +85,15 @@ function determineTailwindCategory(
       name
     )
   ) {
-    return "colors";
+    category = "colors";
   }
 
   // Check if the variable might be a spacing value based on naming patterns
   if (/^(xs|sm|md|lg|xl|2xl|3xl)$/.test(name) || /^(\d+)$/.test(name)) {
-    return "spacing";
+    category = "spacing";
   }
 
-  return null;
+  return category;
 }
 
 /**
@@ -104,8 +105,25 @@ function getTailwindKey(
 ): string {
   const name = sanitizeName(variableName);
 
+  if (category === "spacing") {
+    for (const prefix of ["breakpoint-", "breakpoints-", "screen-"]) {
+      if (name.startsWith(prefix)) {
+        return name.substring(prefix.length);
+      }
+    }
+  }
+
+  // Special handling for colors - strip color prefix
+  if (category === "colors") {
+    for (const prefix of ["colors-", "bg-", "background-", "text-", "brand-"]) {
+      if (name.startsWith(prefix)) {
+        return name.substring(prefix.length);
+      }
+    }
+  }
+
   // Strip common prefixes based on category
-  for (const prefix in categoryMapping) {
+  for (const prefix in categoryMapping) { 
     if (categoryMapping[prefix] === category && name.startsWith(prefix + "-")) {
       return name.substring(prefix.length + 1); // +1 for the hyphen
     }
@@ -132,12 +150,15 @@ async function generateTailwindConfig(): Promise<string> {
   // Process each collection and add variables to appropriate category
   for (const collectionName in data) {
     const collection = data[collectionName];
+    if (collectionName.toLowerCase() === "tokens") continue; // Skip token collection
+
 
     // Function to process variables regardless of collection mode structure
     const processVariables = (
       variables: Array<{ name: string; value: unknown }>
     ) => {
       variables.forEach((variable) => {
+
         const category = determineTailwindCategory(
           variable.name,
           collectionName
@@ -154,6 +175,15 @@ async function generateTailwindConfig(): Promise<string> {
 
         // Add the variable with CSS var() reference
         const varName = sanitizeName(variable.name);
+
+        // Updated size token check with more comprehensive patterns
+        if (category === "spacing") {
+          const breakpointPattern = /^(breakpoint-)?(xs|sm|md|lg|xl|2xl|3xl|4xl|\d+)$/;
+          if (breakpointPattern.test(varName)) {
+            tailwindTheme["screen"][key] = `var(--${varName})`;
+          }
+        }
+
         if (collectionName.toLowerCase().includes("color primitive")) {
           // For Color Primitives, strip the prefix
           const parts = varName.split("-");
