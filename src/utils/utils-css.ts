@@ -149,7 +149,7 @@ export async function generateCSS(): Promise<string> {
     return "/* No variables found */";
   }
 
-  let cssOutput = `:root {\n`;
+  let cssOutput = `@layer base {\n  :root {\n`;
 
   // Process each collection
   for (const collectionName in data) {
@@ -192,7 +192,7 @@ export async function generateCSS(): Promise<string> {
     }
   }
 
-  cssOutput += `}\n\n`;
+  cssOutput += `}\n}\n\n`;
 
   // Process modes for each collection with theme variants
   for (const collectionName in data) {
@@ -210,7 +210,7 @@ export async function generateCSS(): Promise<string> {
         const modeVars = collection.variables[modeName];
 
         if (modeVars) {
-          cssOutput += `[data-theme="${sanitizeName(modeName)}"] {\n`;
+          cssOutput += `@layer base {\n  .${sanitizeName(modeName)} {\n`;
 
           const sortedModeVars = sortCSSVariables(modeVars);
           sortedModeVars.forEach((variable) => {
@@ -224,7 +224,7 @@ export async function generateCSS(): Promise<string> {
             cssOutput += `  --${varName}: ${varValue};\n`;
           });
 
-          cssOutput += `}\n\n`;
+          cssOutput += `  }\n}\n\n`;
         }
       }
     }

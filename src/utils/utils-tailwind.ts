@@ -6,20 +6,19 @@ type TailwindCategory =
   | "spacing"
   | "colors"
   | "fontSize"
-  | "fontWeight"
   | "fontFamily"
   | "borderRadius"
   | "borderWidth"
   | "boxShadow"
   | "opacity"
   | "zIndex"
-  | "screen";
+  | "screens";
 
 /**
  * Maps category prefixes to Tailwind theme categories
  */
 const categoryMapping: Record<string, TailwindCategory> = {
-  breakpoint: "screen",
+  breakpoint: "screens",
   spacing: "spacing",
   space: "spacing",
   size: "spacing",
@@ -35,8 +34,6 @@ const categoryMapping: Record<string, TailwindCategory> = {
   background: "colors",
   "font-size": "fontSize",
   text: "fontSize",
-  "font-weight": "fontWeight",
-  weight: "fontWeight",
   "font-family": "fontFamily",
   family: "fontFamily",
   radius: "borderRadius",
@@ -57,18 +54,20 @@ function determineTailwindCategory(
   collectionName: string
 ): TailwindCategory | null {
   const name = sanitizeName(variableName);
-  let category: TailwindCategory | null = null; 
+  let category: TailwindCategory | null = null;
   // First check collection name for category clues
-  const collectionLower = collectionName.toLowerCase(); 
+  const collectionLower = collectionName.toLowerCase();
   if (collectionLower.includes("color")) category = "colors";
   if (collectionLower.includes("spacing")) category = "spacing";
-  if (collectionLower.includes("font") && collectionLower.includes("size"))
+
+  // Special cases for font properties
+  if (collectionLower.includes("type set") && variableName.includes("size"))
     category = "fontSize";
-  if (collectionLower.includes("font") && collectionLower.includes("weight"))
-    category = "fontWeight";
-  if (collectionLower.includes("font") && collectionLower.includes("family"))
+  if (collectionLower.includes("type set") && variableName.includes("family"))
     category = "fontFamily";
-  if (collectionLower.includes("radius") || collectionLower.includes("rounded"))
+
+  // Special cases for border properties
+  if (collectionLower.includes("tokens") || variableName.includes("rounded"))
     category = "borderRadius";
   if (collectionLower.includes("shadow")) category = "boxShadow";
 
@@ -106,7 +105,7 @@ function getTailwindKey(
   const name = sanitizeName(variableName);
 
   if (category === "spacing") {
-    for (const prefix of ["breakpoint-", "breakpoints-", "screen-"]) {
+    for (const prefix of ["breakpoint-", "breakpoints-", "screens-"]) {
       if (name.startsWith(prefix)) {
         return name.substring(prefix.length);
       }
@@ -123,7 +122,7 @@ function getTailwindKey(
   }
 
   // Strip common prefixes based on category
-  for (const prefix in categoryMapping) { 
+  for (const prefix in categoryMapping) {
     if (categoryMapping[prefix] === category && name.startsWith(prefix + "-")) {
       return name.substring(prefix.length + 1); // +1 for the hyphen
     }
@@ -152,13 +151,11 @@ async function generateTailwindConfig(): Promise<string> {
     const collection = data[collectionName];
     if (collectionName.toLowerCase() === "tokens") continue; // Skip token collection
 
-
     // Function to process variables regardless of collection mode structure
     const processVariables = (
       variables: Array<{ name: string; value: unknown }>
     ) => {
       variables.forEach((variable) => {
-
         const category = determineTailwindCategory(
           variable.name,
           collectionName
@@ -178,9 +175,10 @@ async function generateTailwindConfig(): Promise<string> {
 
         // Updated size token check with more comprehensive patterns
         if (category === "spacing") {
-          const breakpointPattern = /^(breakpoint-)?(xs|sm|md|lg|xl|2xl|3xl|4xl|\d+)$/;
+          const breakpointPattern =
+            /^(breakpoint-)?(xs|sm|md|lg|xl|2xl|3xl|4xl|\d+)$/;
           if (breakpointPattern.test(varName)) {
-            tailwindTheme["screen"][key] = `var(--${varName})`;
+            tailwindTheme["screens"][key] = `var(--${varName})`;
           }
         }
 
@@ -214,7 +212,8 @@ async function generateTailwindConfig(): Promise<string> {
   }
 
   // Generate the tailwind.config.js content
-  let configContent = "module.exports = {\n  theme: {\n    extend: {";
+  let configContent =
+    'module.exports = {\n  content: [\n    "./components/**/*.{js,ts,jsx,tsx,mdx}",\n    "./pages/**/*.{js,ts,jsx,tsx,mdx}",\n    "./app/**/*.{js,ts,jsx,tsx,mdx}",\n    "./src/**/*.{js,ts,jsx,tsx,mdx}",\n],\ntheme: {\n    extend: {';
 
   // Add each category
   for (const category in tailwindTheme) {
