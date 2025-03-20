@@ -1,3 +1,4 @@
+type RGB = { r: number; g: number; b: number };
 type HSL = { h: number; s: number; l: number };
 
 export const rgbToHsl = ({ r, g, b }: RGB): HSL => {
@@ -40,5 +41,19 @@ export const rgbToHsl = ({ r, g, b }: RGB): HSL => {
 export const hslValueToString = ({ h, s, l }: HSL): string =>
   `${h}, ${s}%, ${l}%`;
 
-export const pxToRem = (px: number, base: number = 16): string =>
-  `${px / base}rem`;
+export const pxToRem = (px: number, base: number = 16): string => {
+  if (px % 4 === 0) {
+    return `${px / 4}rem`; // Convert to Tailwind's 0.25rem units
+  }
+  return `${px / base}rem`;
+};
+
+export const sanitizeName = (name: string): string => {
+  // Replace spaces and special characters with dashes
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "-")
+    .replace(/-+/g, "-") // Replace multiple consecutive dashes with a single dash
+    .replace(/^-|-$/g, ""); // Remove leading/trailing dashes
+};

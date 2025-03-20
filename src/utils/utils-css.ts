@@ -1,20 +1,42 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { VariablesJson } from "@src/types";
-import { hslValueToString, rgbToHsl } from "./parser";
+import { fontWeightValues, sizeOrderRank } from "./constant";
+import { hslValueToString, pxToRem, rgbToHsl, sanitizeName } from "./parser";
 
 /**
  * Formats a variable value into a CSS-compatible string
  */
-function formatValueForCSS(value: any, type: string | undefined): string {
+function formatValueForCSS(
+  value: any,
+  type: string | undefined,
+  collectionName: string,
+  variableName: string
+): string {
   if (value === null || value === undefined) {
     return "initial";
   }
 
   if (typeof value === "number") {
-    // Handle spacing, sizing values
-    if (type === "FLOAT" || type === "INTEGER") {
-      return `${value}px`;
+    if (value === 0) {
+      return "0";
     }
+
+    // Special case 1: If collection is spacing, convert to rem
+    if (collectionName.toLowerCase().includes("spacing")) {
+      return pxToRem(value);
+    }
+
+    // Special case 2: If numeric and not font weight property, convert to rem
+    const nameLower = variableName.toLowerCase();
+    const isFontWeight =
+      nameLower.includes("weight") ||
+      (nameLower.includes("font") && fontWeightValues.has(String(value)));
+
+    if (!isFontWeight) {
+      // For spacing, sizing values, convert to rem
+      return pxToRem(value);
+    }
+
     return value.toString();
   }
 
@@ -39,16 +61,80 @@ function formatValueForCSS(value: any, type: string | undefined): string {
 }
 
 /**
- * Sanitizes a name for CSS variable use
+ * Process variable name based on collection
+ * For Color Primitives, remove the prefix
  */
-function sanitizeNameForCSS(name: string): string {
-  // Replace spaces and special characters with dashes
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "-")
-    .replace(/-+/g, "-") // Replace multiple consecutive dashes with a single dash
-    .replace(/^-|-$/g, ""); // Remove leading/trailing dashes
+function processVariableName(name: string, collectionName: string): string {
+  const sanitized = sanitizeName(name);
+
+  // Check if this belongs to Color Primitives collection
+  if (collectionName.toLowerCase().includes("color primitive")) {
+    const parts = sanitized.split("-");
+    if (parts.length > 1) {
+      // Remove the first part (prefix)
+      return parts.slice(1).join("-");
+    }
+  }
+
+  return sanitized;
+}
+
+/**
+ * Sorts variables by their prefix and numeric order within each prefix group
+ */
+function sortCSSVariables(
+  variables: Array<{ name: string; value: any }>
+): Array<{ name: string; value: any }> {
+  return [...variables].sort((a, b) => {
+    const aName = sanitizeName(a.name);
+    const bName = sanitizeName(b.name);
+
+    // Extract prefix (everything before the last dash)
+    const aLastDashIndex = aName.lastIndexOf("-");
+    const bLastDashIndex = bName.lastIndexOf("-");
+
+    const aPrefix =
+      aLastDashIndex !== -1 ? aName.substring(0, aLastDashIndex) : aName;
+    const bPrefix =
+      bLastDashIndex !== -1 ? bName.substring(0, bLastDashIndex) : bName;
+
+    // First sort by prefix
+    if (aPrefix !== bPrefix) {
+      return aPrefix.localeCompare(bPrefix);
+    }
+
+    // Extract the last part (after the last dash)
+    const aSuffix =
+      aLastDashIndex !== -1 ? aName.substring(aLastDashIndex + 1) : "";
+    const bSuffix =
+      bLastDashIndex !== -1 ? bName.substring(bLastDashIndex + 1) : "";
+
+    // Check if suffixes are size-related values
+    const aIsSize = aSuffix in sizeOrderRank;
+    const bIsSize = bSuffix in sizeOrderRank;
+
+    // If both are size values, sort by size order
+    if (aIsSize && bIsSize) {
+      return sizeOrderRank[aSuffix] - sizeOrderRank[bSuffix];
+    }
+
+    // If only one is a size value, keep original order
+    if (aIsSize !== bIsSize) {
+      // Preserve the original order by returning 0
+      return 0;
+    }
+
+    // If both are numeric, sort numerically
+    const aNum = parseInt(aSuffix, 10);
+    const bNum = parseInt(bSuffix, 10);
+
+    if (!isNaN(aNum) && !isNaN(bNum)) {
+      return aNum - bNum;
+    }
+
+    // Otherwise, sort alphabetically for non-size, non-numeric values
+    return aSuffix.localeCompare(bSuffix);
+  });
 }
 
 /**
@@ -63,7 +149,7 @@ export async function generateCSS(): Promise<string> {
     return "/* No variables found */";
   }
 
-  let cssOutput = `:root {\n`;
+  let cssOutput = `@layer base {\n  :root {\n`;
 
   // Process each collection
   for (const collectionName in data) {
@@ -72,34 +158,41 @@ export async function generateCSS(): Promise<string> {
 
     // Handle simple (non-moded) collections first
     if (Array.isArray(collection.variables)) {
-      collection.variables.forEach((variable) => {
-        const varName = sanitizeNameForCSS(
-          `${collectionName}-${variable.name}`
+      const sortedVariables = sortCSSVariables(collection.variables);
+      sortedVariables.forEach((variable) => {
+        const varName = processVariableName(variable.name, collectionName);
+        const varValue = formatValueForCSS(
+          variable.value,
+          collection.type,
+          collectionName,
+          variable.name
         );
-        const varValue = formatValueForCSS(variable.value, collection.type);
         cssOutput += `  --${varName}: ${varValue};\n`;
       });
     }
     // Handle collections with modes
     else if (collection.modes && collection.modes.length > 0) {
       // Add default mode variables to :root
-
       const defaultMode = collection.modes[0];
       const defaultModeVars = collection.variables[defaultMode];
 
       if (defaultModeVars) {
-        defaultModeVars.forEach((variable) => {
-          const varName = sanitizeNameForCSS(
-            `${collectionName}-${variable.name}`
+        const sortedModeVars = sortCSSVariables(defaultModeVars);
+        sortedModeVars.forEach((variable) => {
+          const varName = processVariableName(variable.name, collectionName);
+          const varValue = formatValueForCSS(
+            variable.value,
+            collection.type,
+            collectionName,
+            variable.name
           );
-          const varValue = formatValueForCSS(variable.value, collection.type);
           cssOutput += `  --${varName}: ${varValue};\n`;
         });
       }
     }
   }
 
-  cssOutput += `}\n\n`;
+  cssOutput += `}\n}\n\n`;
 
   // Process modes for each collection with theme variants
   for (const collectionName in data) {
@@ -117,17 +210,21 @@ export async function generateCSS(): Promise<string> {
         const modeVars = collection.variables[modeName];
 
         if (modeVars) {
-          cssOutput += `[data-theme="${sanitizeNameForCSS(modeName)}"] {\n`;
+          cssOutput += `@layer base {\n  .${sanitizeName(modeName)} {\n`;
 
-          modeVars.forEach((variable) => {
-            const varName = sanitizeNameForCSS(
-              `${collectionName}-${variable.name}`
+          const sortedModeVars = sortCSSVariables(modeVars);
+          sortedModeVars.forEach((variable) => {
+            const varName = processVariableName(variable.name, collectionName);
+            const varValue = formatValueForCSS(
+              variable.value,
+              collection.type,
+              collectionName,
+              variable.name
             );
-            const varValue = formatValueForCSS(variable.value, collection.type);
             cssOutput += `  --${varName}: ${varValue};\n`;
           });
 
-          cssOutput += `}\n\n`;
+          cssOutput += `  }\n}\n\n`;
         }
       }
     }
@@ -136,12 +233,9 @@ export async function generateCSS(): Promise<string> {
   return cssOutput;
 }
 
-export async function exportCSS() {
-  const cssContent = await generateCSS();
-  figma.ui.postMessage({ type: "export-css", data: cssContent });
-}
-
-export async function downloadCSS() {
+async function downloadCSS() {
   const cssContent = await generateCSS();
   figma.ui.postMessage({ type: "download-css", data: cssContent });
 }
+
+export default downloadCSS;
