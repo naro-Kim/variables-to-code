@@ -208,10 +208,17 @@ export async function generateCSS(): Promise<string> {
       for (let i = 1; i < collection.modes.length; i++) {
         const modeName = collection.modes[i];
         const modeVars = collection.variables[modeName];
+        const isModeColorScheme =
+          ["dark", "light"].indexOf(modeName.toLowerCase()) !== -1;
 
         if (modeVars) {
-          cssOutput += `@layer base {\n  .${sanitizeName(modeName)} {\n`;
-
+          if (isModeColorScheme) {
+            cssOutput += `@media (prefers-color-scheme: ${sanitizeName(
+              modeName
+            )}) {\n :root{\n`;
+          } else {
+            cssOutput += `@layer base {\n  .${sanitizeName(modeName)} {\n`;
+          }
           const sortedModeVars = sortCSSVariables(modeVars);
           sortedModeVars.forEach((variable) => {
             const varName = processVariableName(variable.name, collectionName);
